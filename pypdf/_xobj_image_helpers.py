@@ -331,17 +331,30 @@ def _apply_decode(
     color_space: Union[str, List[Any], Any],
     invert_color: bool,
 ) -> Image.Image:
-    # CMYK image and other color spaces without decode
-    # requires reverting scale (cf p243,2§ last sentence)
-    decode = x_object_obj.get(
-        IA.DECODE,
-        ([1.0, 0.0] * len(img.getbands()))
-        if (
-            (img.mode == "CMYK" and lfilters in (FT.DCT_DECODE, FT.JPX_DECODE))
-            or (invert_color and img.mode == "L")
+    def _apply_lut(img: Image.Image, decode: List[float]) -> Image.Image:
+        lut: List[int] = []
+        for i in range(0, len(decode), 2):
+            dmin = decode[i]
+            dmax = decode[i + 1]
+            lut.extend(
+                round(255.0 * (j / 255.0 * (dmax - dmin) + dmin)) for j in range(256)
+            )
+        return img.point(lut)
+    # CMYK image and other color spaces require reverting scale (cf p243,2§ last sentence)
+    # if JPEG encoded
+    if img.mode == "CMYK" and lfilters in (FT.DCT_DECODE):#, FT.JPX_DECODE):
+        decode = [1.0, 0.0] * len(img.getbands())
+        img = _apply_lut(img, decode)
+        decode = x_object_obj.get(IA.DECODE)
+    else:
+        decode = x_object_obj.get(
+            IA.DECODE,
+            ([1.0, 0.0] * len(img.getbands()))
+            if (
+                invert_color and img.mode == "L"
+            )
+            else None,
         )
-        else None,
-    )
     if (
         isinstance(color_space, ArrayObject)
         and color_space[0].get_object() == "/Indexed"
@@ -353,14 +366,7 @@ def _apply_decode(
     ):
         decode = [1.0, 0.0] * len(img.getbands())
     if decode is not None and not all(decode[i] == i % 2 for i in range(len(decode))):
-        lut: List[int] = []
-        for i in range(0, len(decode), 2):
-            dmin = decode[i]
-            dmax = decode[i + 1]
-            lut.extend(
-                round(255.0 * (j / 255.0 * (dmax - dmin) + dmin)) for j in range(256)
-            )
-        img = img.point(lut)
+        img = _apply_lut(img, decode)
     return img
 
 
