@@ -308,9 +308,22 @@ class ImageAttributes:
 
 
 class ColorSpaces:
+    """$8.6.3 Colour space families of the ISO 32000:2-2017 reference"""
+
+    # Device color spaces
     DEVICE_RGB = "/DeviceRGB"
     DEVICE_CMYK = "/DeviceCMYK"
     DEVICE_GRAY = "/DeviceGray"
+    # CIE based color spaces
+    CAL_GRAY = "/CalGray"
+    CAL_RGB = "/CalRGB"
+    LAB = "/Lab"
+    ICCBASED = "/ICCBased"
+    # Special color spaces
+    INDEXED = "/Indexed"
+    PATTERN = "/Pattern"
+    SEPARATION = "/Separation"
+    DEVICE_N = "/DeviceN"
 
 
 class TypArguments:

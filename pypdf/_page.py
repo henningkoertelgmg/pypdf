@@ -52,6 +52,7 @@ from typing import (
 from ._cmap import (
     build_char_map,
 )
+from ._img import XObjectWrapper
 from ._protocols import PdfCommonDocProtocol
 from ._text_extraction import (
     _layout_mode,
@@ -64,7 +65,7 @@ from ._utils import (
     logger_warning,
     matrix_multiply,
 )
-from .constants import _INLINE_IMAGE_KEY_MAPPING, _INLINE_IMAGE_VALUE_MAPPING
+from .constants import _INLINE_IMAGE_KEY_MAPPING, _INLINE_IMAGE_VALUE_MAPPING, ColorSpaces
 from .constants import AnnotationDictionaryAttributes as ADA
 from .constants import ImageAttributes as IA
 from .constants import PageAttributes as PG
@@ -652,6 +653,21 @@ class PageObject(DictionaryObject):
                 if self.inline_images is None:  # pragma: no cover
                     raise KeyError("No inline image can be found")
                 return self.inline_images[id]
+
+            # Added a new possibility to get PIL Images and to solve the problem with none-Device colorants
+            # like PANTONE colors/inks in image data
+            # For none-Device colors the alternate color space is used instead as a default,
+            # so this section applies to images with Separation and DeviceN color space only
+            xobj_wrapper = XObjectWrapper(cast(StreamObject, xobjs[id]))
+            if xobj_wrapper.get_color_space().get_colorspace_type() in [ColorSpaces.SEPARATION, ColorSpaces.DEVICE_N]:
+                pil_img = xobj_wrapper.get_PIL_image()
+                return ImageFile(
+                    name=f"{id[1:]}.jpg",
+                    data=xobj_wrapper.get_image_data(),
+                    image=pil_img,
+                    indirect_reference=xobjs[id].indirect_reference,
+                )
+            # End of the new PIL image creation code, from here as usual
 
             imgd = _xobj_to_image(cast(DictionaryObject, xobjs[id]))
             extension, byte_stream = imgd[:2]
